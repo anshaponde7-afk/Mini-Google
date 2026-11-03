@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini Google 1998</title>
+<style>
+  body { font-family: Verdana, Arial, sans-serif; background: #fffbe6; margin: 0; padding: 20px; color: #222; }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+
+  /* Logo: each letter gets its own colour */
+  .logo { text-align: center; font-size: 56px; font-weight: bold; letter-spacing: 2px; margin: 10px 0 0; }
+  .logo small { display: block; font-size: 18px; color: #888; letter-spacing: 0; font-weight: normal; }
+  .b { color: #2a5bd7; } .r { color: #d93025; } .y { color: #f4b400; } .g { color: #188038; }
+
+  /* Search box and buttons */
+  .search { text-align: center; margin: 20px 0 10px; }
+  .search input { width: 55%; max-width: 420px; padding: 10px; font-size: 18px; border: 2px solid #2a5bd7; border-radius: 6px; }
+  button { cursor: pointer; font-size: 16px; border-radius: 6px; border: 2px solid #2a5bd7; background: #fff; padding: 8px 14px; }
+  button:hover { background: #e8f0fe; }
+  .go { background: #2a5bd7; color: #fff; font-size: 18px; padding: 10px 18px; }
+  .go:hover { background: #1b43a8; }
+  .examples { text-align: center; margin-bottom: 10px; }
+  .examples button { margin: 3px; border-color: #f4b400; }
+  .again { display: block; margin: 0 auto 20px; border-color: #188038; }
+
+  /* Two columns side by side */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+  .col h2 { text-align: center; padding: 8px; border-radius: 6px; color: #fff; margin: 0 0 10px; font-size: 20px; }
+  .old h2 { background: #d93025; }
+  .surfer h2 { background: #188038; }
+
+  /* Result cards */
+  .card { background: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .rank { float: left; font-size: 28px; font-weight: bold; margin-right: 10px; color: #2a5bd7; }
+  .url { color: #188038; font-weight: bold; }
+  .text { margin: 6px 0; }
+  .score { clear: both; font-size: 14px; font-weight: bold; }
+  .score.two { display: flex; justify-content: space-between; }
+  mark { background: #ffe066; padding: 0 2px; }
+
+  .nothing { text-align: center; font-size: 20px; padding: 30px; background: #fff; border: 3px dashed #d93025; border-radius: 10px; }
+  .hint { text-align: center; color: #666; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="logo">
+    <span class="b">M</span><span class="r">i</span><span class="y">n</span><span class="b">i</span>
+    <span class="g">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span>
+    <small>1998</small>
+  </div>
+
+  <div class="search">
+    <input id="box" type="text" placeholder="Type one word..." autofocus>
+    <button class="go" id="searchBtn">Search</button>
+  </div>
+
+  <div class="examples">
+    Try:
+    <button class="ex">pizza</button>
+    <button class="ex">cricket</button>
+    <button class="ex">movie</button>
+    <button class="ex">exam</button>
+  </div>
+
+  <button class="again" id="againBtn">Run the surfer again</button>
+
+  <div id="results"></div>
+</div>
+
+<script>
+// ------------------------------------------------------------
+// 1. THE DATA (one row per web page: page,url,text,links_to)
+// ------------------------------------------------------------
+const RAW = `page,url,text,links_to
+1,pune-food-guide.com,Where to eat in Pune - vada pav and biryani and pizza,2
+2,best-pizza-pune.com,Fresh wood-fired pizza made daily - try our cheese pizza,1;3
+3,college-canteen-blog.com,Student reviews of canteen food and chai and Friday pizza,2;4
+4,pizza-recipes-home.com,Make pizza at home - pizza dough and pizza sauce,2;5
+5,cheap-eats-pune.com,Good food under 100 rupees - misal and dosa and pizza slices,2
+6,pizza-pizza-pizza.com,pizza pizza pizza pizza pizza pizza pizza pizza pizza pizza,1
+7,cricket-live-scores.com,Live cricket scores and ball by ball cricket updates,8;10
+8,ipl-fan-club.in,IPL fan chat - team news and cricket memes,7;9
+9,school-cricket-coach.com,Learn cricket batting and bowling with simple drills,7;10
+10,cricket-history-india.com,Great moments from the history of Indian cricket,7
+11,cricket-cricket-cricket.com,cricket cricket cricket cricket cricket cricket cricket cricket cricket cricket,7
+12,bollywood-movie-reviews.in,Honest reviews of every new Bollywood movie released on Friday,13;15
+13,movie-ticket-offers.com,Cheap movie tickets and weekend offers in Pune,12;1
+14,film-club-college.com,Our college film club watches one movie every week,12;17
+15,classic-movie-songs.com,Old movie songs and the stories behind each movie,12;13;14
+16,free-movie-free-movie.com,free movie free movie free movie free movie free movie movie movie movie movie movie,12
+17,exam-tips-for-students.com,Smart exam tips - sleep well and practise old exam papers,18;3
+18,college-notes-share.com,Share class notes with friends before the exam,17;19
+19,pune-college-news.in,News from Pune colleges - fest dates and exam timetables and cricket matches,1;7;12;17
+20,exam-exam-exam.com,exam exam exam exam exam exam exam exam exam exam,17`;
+
+// Turn the text into a list of page objects
+const pages = RAW.trim().split("\n").slice(1).map(function (line) {
+  const parts = line.split(",");
+  return {
+    id: Number(parts[0]),
+    url: parts[1],
+    text: parts[2],
+    links: parts[3].split(";").map(Number),   // e.g. "1;3" -> [1, 3]
+    linksIn: 0                                // filled in below
+  };
+});
+
+// Quick lookup: page number -> page object
+const byId = {};
+pages.forEach(function (p) { byId[p.id] = p; });
+
+// "Links in" = how many pages link to each page
+pages.forEach(function (p) {
+  p.links.forEach(function (target) { byId[target].linksIn++; });
+});
+
+// ------------------------------------------------------------
+// 2. RANKING 1: count the search word (whole word, ignore case)
+// ------------------------------------------------------------
+function makeRegex(word) {
+  // escape special characters so the word is treated as plain text
+  const safe = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("\\b" + safe + "\\b", "gi");
+}
+
+function countWord(text, word) {
+  const found = text.match(makeRegex(word));
+  return found ? found.length : 0;
+}
+
+// ------------------------------------------------------------
+// 3. RANKING 2: the random surfer
+// ------------------------------------------------------------
+const MOVES = 100000;
+const BORED = 0.15;       // 15% of the time the surfer jumps anywhere
+let surferScore = {};     // page number -> percentage
+
+function randomPage() {
+  return pages[Math.floor(Math.random() * pages.length)];
+}
+
+function runSurfer() {
+  const visits = {};
+  pages.forEach(function (p) { visits[p.id] = 0; });
+
+  let current = randomPage();                       // start on a random page
+  for (let i = 0; i < MOVES; i++) {
+    if (Math.random() < BORED || current.links.length === 0) {
+      current = randomPage();                       // bored: jump anywhere
+    } else {
+      const pick = Math.floor(Math.random() * current.links.length);
+      current = byId[current.links[pick]];          // click a random link
+    }
+    visits[current.id]++;                           // count the visit
+  }
+
+  surferScore = {};
+  pages.forEach(function (p) {
+    surferScore[p.id] = visits[p.id] / MOVES * 100; // visits / 100,000 as %
+  });
+}
+
+// ---- PAGE (everything below touches the screen) ----
+
+// ------------------------------------------------------------
+// 4. SHOW THE RESULTS
+// ------------------------------------------------------------
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Put <mark> around the search word (safe: we escape every piece)
+function highlight(text, word) {
+  const re = makeRegex(word);
+  let out = "", last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    out += escapeHtml(text.slice(last, m.index)) + "<mark>" + escapeHtml(m[0]) + "</mark>";
+    last = m.index + m[0].length;
+  }
+  return out + escapeHtml(text.slice(last));
+}
+
+let lastWord = "";   // remember the last search so "run again" can refresh
+
+function card(rank, p, word, scoreHtml, extraClass) {
+  return '<div class="card">' +
+    '<div class="rank">' + rank + '</div>' +
+    '<div class="url">' + escapeHtml(p.url) + '</div>' +
+    '<div class="text">' + highlight(p.text, word) + '</div>' +
+    '<div class="score ' + (extraClass || "") + '">' + scoreHtml + '</div>' +
+    '</div>';
+}
+
+function search(word) {
+  word = word.trim();
+  lastWord = word;
+  const out = document.getElementById("results");
+
+  if (word === "") {
+    out.innerHTML = '<p class="hint">Type a word or press an example button!</p>';
+    return;
+  }
+
+  // keep only pages that contain the word, and remember each count
+  const matches = pages
+    .map(function (p) { return { page: p, count: countWord(p.text, word) }; })
+    .filter(function (m) { return m.count > 0; });
+
+  if (matches.length === 0) {
+    out.innerHTML = '<div class="nothing">Oh no! Our 1998 surfer searched all 20 pages and found no "' +
+      escapeHtml(word) + '". Maybe it is still stuck on a slow dial-up connection. Try another word!</div>';
+    return;
+  }
+
+  // Old way: highest word count first
+  const oldList = matches.slice().sort(function (a, b) { return b.count - a.count; });
+  // Surfer way: highest surfer score first
+  const surferList = matches.slice().sort(function (a, b) {
+    return surferScore[b.page.id] - surferScore[a.page.id];
+  });
+
+  let leftHtml = "", rightHtml = "";
+  oldList.forEach(function (m, i) {
+    leftHtml += card(i + 1, m.page, word, "Word count: " + m.count);
+  });
+  surferList.forEach(function (m, i) {
+    const pct = surferScore[m.page.id].toFixed(1) + "%";
+    rightHtml += card(i + 1, m.page, word,
+      "<span>Surfer score: " + pct + "</span><span>Links in: " + m.page.linksIn + "</span>", "two");
+  });
+
+  out.innerHTML = '<div class="cols">' +
+    '<div class="col old"><h2>Old way (1997)</h2>' + leftHtml + '</div>' +
+    '<div class="col surfer"><h2>Surfer way (1998)</h2>' + rightHtml + '</div>' +
+    '</div>';
+}
+
+// ------------------------------------------------------------
+// 5. BUTTONS
+// ------------------------------------------------------------
+const box = document.getElementById("box");
+
+document.getElementById("searchBtn").onclick = function () { search(box.value); };
+box.addEventListener("keydown", function (e) { if (e.key === "Enter") search(box.value); });
+
+document.querySelectorAll(".ex").forEach(function (b) {
+  b.onclick = function () { box.value = b.textContent; search(b.textContent); };
+});
+
+document.getElementById("againBtn").onclick = function () {
+  runSurfer();           // redo the 100,000 moves
+  search(lastWord);      // refresh what is on screen
+};
+
+// Run the surfer once when the page opens
+runSurfer();
+search("");
+</script>
+</body>
+</html>
